@@ -1,0 +1,4 @@
+interface IHitable
+{
+    void OnHitscanHit();
+}
