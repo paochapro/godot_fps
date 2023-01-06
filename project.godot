@@ -14,6 +14,10 @@ config/name="mono-test"
 run/main_scene="res://src/Start.tscn"
 config/icon="res://icon.png"
 
+[display]
+
+window/size/fullscreen=true
+
 [gui]
 
 common/drop_mouse_on_gui_input_disabled=true

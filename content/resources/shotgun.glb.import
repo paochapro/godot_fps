@@ -2,12 +2,12 @@
 
 importer="scene"
 type="PackedScene"
-path="res://.import/axe.glb-d0b9a703a7856dfd6487ed9e52179c8f.scn"
+path="res://.import/shotgun.glb-6d6220b160ef16dfc1d7fc0704a5eebb.scn"
 
 [deps]
 
-source_file="res://content/axe.glb"
-dest_files=[ "res://.import/axe.glb-d0b9a703a7856dfd6487ed9e52179c8f.scn" ]
+source_file="res://content/resources/shotgun.glb"
+dest_files=[ "res://.import/shotgun.glb-6d6220b160ef16dfc1d7fc0704a5eebb.scn" ]
 
 [params]
 

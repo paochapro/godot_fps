@@ -2,7 +2,7 @@ using Godot;
 
 class WeaponShotgun : WeaponHitscan
 {
-    private const float bulletsMaxOffset = 0.1f;
+    private const float bulletsMaxOffset = 0.03f;
     private const int startAmmo = 10;
 
     protected override void FireOutput(Vector3 origin, Vector3 dir, Spatial map)
@@ -20,7 +20,7 @@ class WeaponShotgun : WeaponHitscan
     }
 
     public WeaponShotgun()
-        : base(startAmmo, GD.Load<PackedScene>("res://content/shotgun.glb"))
+        : base(startAmmo, GD.Load<PackedScene>("res://content/resources/shotgun.glb"))
     {
     }
 }

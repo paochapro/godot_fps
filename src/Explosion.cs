@@ -73,10 +73,16 @@ public class Explosion : Spatial
             Spatial collider = (Spatial)hitObject["collider"];
 
             var distance = physicsShape.Transform.origin.DistanceTo(collider.Translation);
-            float damage = Mathf.RangeLerp(distance, EXPLOSION_RADIUS, 0, 0, 100);
+            float damage = Mathf.RangeLerp(distance, EXPLOSION_RADIUS, 3, 0, 100);
+
+            if(damage < 0)  
+                continue;
 
             if(collider is Actor actor)
+            {
+                GD.Print("distance:" + distance);
                 actor.OnExplosionHit(damage);
+            }
         }
     }
 }

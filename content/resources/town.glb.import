@@ -2,12 +2,12 @@
 
 importer="scene"
 type="PackedScene"
-path="res://.import/gun.glb-fe9769a3fe94af25f713d30d90bc64f0.scn"
+path="res://.import/town.glb-2a4ccd46165546207c7012b6975389eb.scn"
 
 [deps]
 
-source_file="res://content/gun.glb"
-dest_files=[ "res://.import/gun.glb-fe9769a3fe94af25f713d30d90bc64f0.scn" ]
+source_file="res://content/resources/town.glb"
+dest_files=[ "res://.import/town.glb-2a4ccd46165546207c7012b6975389eb.scn" ]
 
 [params]
 

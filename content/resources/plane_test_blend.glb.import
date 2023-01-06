@@ -2,12 +2,12 @@
 
 importer="scene"
 type="PackedScene"
-path="res://.import/explosion_barrel.glb-27d9a1f2f7c5f8329496e6012a8d9925.scn"
+path="res://.import/plane_test_blend.glb-c0188962c3cd72adcb9389a9bf2f86cd.scn"
 
 [deps]
 
-source_file="res://content/explosion_barrel.glb"
-dest_files=[ "res://.import/explosion_barrel.glb-27d9a1f2f7c5f8329496e6012a8d9925.scn" ]
+source_file="res://content/resources/plane_test_blend.glb"
+dest_files=[ "res://.import/plane_test_blend.glb-c0188962c3cd72adcb9389a9bf2f86cd.scn" ]
 
 [params]
 

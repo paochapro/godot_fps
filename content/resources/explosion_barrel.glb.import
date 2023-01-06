@@ -2,12 +2,12 @@
 
 importer="scene"
 type="PackedScene"
-path="res://.import/shotgun.glb-b7f0cf5c3b51c6413dc34312e9a7175a.scn"
+path="res://.import/explosion_barrel.glb-421ea59ffa6c3eac1d38cdbb3918098a.scn"
 
 [deps]
 
-source_file="res://content/shotgun.glb"
-dest_files=[ "res://.import/shotgun.glb-b7f0cf5c3b51c6413dc34312e9a7175a.scn" ]
+source_file="res://content/resources/explosion_barrel.glb"
+dest_files=[ "res://.import/explosion_barrel.glb-421ea59ffa6c3eac1d38cdbb3918098a.scn" ]
 
 [params]
 

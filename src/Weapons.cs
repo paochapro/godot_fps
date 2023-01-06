@@ -32,8 +32,10 @@ abstract class Weapon
     public bool Shoot(Vector3 origin, Vector3 dir, Spatial map)
     {
         if(magazine <= 0) return false;
+
         FireOutput(origin, dir, map);
         magazine -= 1;
+
         return true;
     }
 
@@ -76,7 +78,7 @@ abstract class WeaponHitscan : Weapon
 
     static WeaponHitscan()
     {
-        bulletHoleTexture = GD.Load<Texture>("res://content/bullet_hole.png");
+        bulletHoleTexture = GD.Load<Texture>("res://content/resources/bullet_hole.png");
     }
 
     public WeaponHitscan(int startAmmo, PackedScene weaponModel)
@@ -115,7 +117,7 @@ class WeaponProjectilePistol : WeaponProjectile
     private const int startAmmo = 30;
 
     public WeaponProjectilePistol()
-        : base(startAmmo, pistol_speed, GD.Load<PackedScene>("res://content/gun.glb"))
+        : base(startAmmo, pistol_speed, GD.Load<PackedScene>("res://content/resources/gun.glb"))
     {
     }
 }
@@ -125,7 +127,7 @@ class WeaponHitscanPistol : WeaponHitscan
     private const int startAmmo = 30;
 
     public WeaponHitscanPistol()
-        : base(startAmmo, GD.Load<PackedScene>("res://content/gun.glb"))
+        : base(startAmmo, GD.Load<PackedScene>("res://content/resources/gun.glb"))
     {
     }
 }
@@ -134,8 +136,6 @@ static class CollisionObjectExtensions
 {
     public static void PlaceBulletHoleDecal(this CollisionObject body, Vector3 translation, Vector3 normal, Vector3 dir, Texture texture)
     {
-        GD.Print("bullet hole, static body: ", body);
-        
         Sprite3D sprite = new Sprite3D();
         sprite.Texture = texture;
 

@@ -9,16 +9,16 @@ class Player : Actor
 	// private const float MAX_FALLING_SPEED = 100f;
 	// private const float JUMP_FORCE = 20f;
 	// private const float MAX_SPEED = 30f;
-	// private const float ACC = 300f;
-	// private const float FRICTION = 0.75f;
+	// private const float FLOOR_ACC = 300f;
+	// private const float FLOOR_FRICTION = 0.75f;
 
 	private float GRAVITY = 70f;
 	private float MAX_FALLING_SPEED = 100f;
 	private float JUMP_FORCE = 22f;
-	private float MAX_SPEED = 30f;
-	private float ACC = 15f;
-	private float FRICTION = 10f;
-	private float AIR_ACC = 2f;
+	private float MAX_SPEED = 25f;
+	private float FLOOR_ACC = 80f;
+	private float FLOOR_FRICTION = 0.9f;
+	private float AIR_ACC = 50f;
 	private float AIR_FRICTION = 1f;
 
 	private float sensetivity = 0.0017f;
@@ -38,12 +38,15 @@ class Player : Actor
 	private Spatial map;
 	private Control ui;
 	private Timer reloadTimer;
+	private Spatial weaponOrigin;
+	private Vector3 spawnPos;
 
 	public override void _Ready() {
 
 		//Getting nodes
 		camera = GetNode<Camera>("Camera");
 		reloadTimer = GetNode<Timer>("ReloadTimer");
+		weaponOrigin = GetNode<Spatial>("Camera/WeaponOrigin");
 		map = GetNode<Map>("/root/World/Map");
 		ui = GetNode<Control>("/root/World/Control");
 
@@ -55,18 +58,39 @@ class Player : Actor
 		SwitchWeapon(0);
 
 		//Connecting top left settings with our properties
+		var movementVarNames = new Dictionary<string, float>() {
+			["gravity"] 				= GRAVITY,
+			["max_falling_speed"] 		= MAX_FALLING_SPEED,
+			["jump_force"] 				= JUMP_FORCE,
+			["max_speed"] 				= MAX_SPEED,
+			["sens"] 					= sensetivity,
+			["floor_acc"] 				= FLOOR_ACC,
+			["floor_friction"] 			= FLOOR_FRICTION,
+			["air_acc"] 				= AIR_ACC,
+			["air_friction"] 			= AIR_FRICTION,
+		};
+
 		var settings = GetNode("/root/World/Control/settings");
-		((SpinBox)settings.GetNode("gravity/gravity")).Value 								= GRAVITY;
-		((SpinBox)settings.GetNode("max_falling_speed/max_falling_speed")).Value 			= MAX_FALLING_SPEED;
-		((SpinBox)settings.GetNode("jump_force/jump_force")).Value 							= JUMP_FORCE;
-		((SpinBox)settings.GetNode("max_speed/max_speed")).Value 							= MAX_SPEED;
-		((SpinBox)settings.GetNode("acc/acc")).Value 										= ACC;
-		((SpinBox)settings.GetNode("sens/sens")).Value 										= sensetivity;
+		foreach(Container container in settings.GetChildren())
+		{
+			SpinBox spinBox = container.GetChild<SpinBox>(1);
+			spinBox.Value = movementVarNames[container.Name];
+		}
+
+		//Storing spawn position
+		spawnPos = Translation;
 	}
 
 	public override void _Process(float dt) 
 	{
 		Controls(dt);
+
+		if(Translation.y <= -100)
+		{
+			velocity = Vector3.Zero;
+			fall = 0;
+			Translation = spawnPos;
+		}
 
 		//Updating ui
 		var ammoLabel = ui.GetNode<Label>("AmmoRect/AmmoLabel");
@@ -93,14 +117,18 @@ class Player : Actor
 			snap = Vector3.Down;
 
 		//Horizontal velocity
-		float acc = 0;
+		Vector3 go = movingDir * MAX_SPEED;
 
 		if(movingDir != Vector3.Zero)
-			acc = IsOnFloor() ? ACC : AIR_ACC;
+		{
+			float acc = (IsOnFloor() ? FLOOR_ACC : AIR_ACC) * dt;
+			velocity = velocity.MoveToward(go, acc);
+		}
 		else
-			acc = IsOnFloor() ? FRICTION : AIR_FRICTION;
-
-		velocity = velocity.LinearInterpolate(movingDir * MAX_SPEED, acc * dt);
+		{
+			float friction = IsOnFloor() ? FLOOR_FRICTION : AIR_FRICTION; //no dt
+			velocity = Vector3.Zero.LinearInterpolate(velocity, friction);
+		}
 
 		//Moving
 		Vector3 finalVec = new Vector3(velocity.x, fall, velocity.z);
@@ -134,7 +162,16 @@ class Player : Actor
 		}
 
 		if(Input.IsActionJustPressed("fire"))
-			currentWeapon.Shoot(camera.GlobalTranslation, -camera.Transform.basis.z, map);
+		{
+			bool shot = currentWeapon.Shoot(camera.GlobalTranslation, -camera.Transform.basis.z, map);
+
+			if(shot)
+			{
+				var weaponModel = weaponOrigin.GetChild<Spatial>(0);
+				var animPlayer = weaponModel.GetNode<AnimationPlayer>("AnimationPlayer");
+				animPlayer.Play("shoot");
+			}
+		}
 
 		if(Input.IsActionJustPressed("reload"))
 			reloadTimer.Start();
@@ -201,22 +238,22 @@ class Player : Actor
 		if(weaponSlot >= weapons.Count) return;
 
 		currentWeapon = weapons[weaponSlot];
-
 		reloadTimer.Stop();
 
 		//Change weapon model
-		var weaponOrigin = GetNode("Camera/WeaponOrigin");
-
 		foreach(Node node in weaponOrigin.GetChildren())
 			node.QueueFree();
 
 		weaponOrigin.AddChild(currentWeapon.WeaponModel.Instance());
 	}
 
-	public void _on_acc_value_changed(float val) => ACC = val;
+	public void _on_floor_acc_value_changed(float val) => FLOOR_ACC = val;
+	public void _on_floor_friction_value_changed(float val) => FLOOR_FRICTION = val;
+	public void _on_air_acc_value_changed(float val) => AIR_ACC = val;
+	public void _on_air_friction_value_changed(float val) => AIR_FRICTION = val;
 	public void _on_max_speed_value_changed(float val) => MAX_SPEED = val;
 	public void _on_gravity_value_changed(float val) => GRAVITY = val;
 	public void _on_jump_force_value_changed(float val) => JUMP_FORCE = val; 
 	public void _on_max_falling_speed_value_changed(float val) => MAX_FALLING_SPEED = val;
-	public void _on_sens_value_changed(float val) => sensetivity = val; 
+	public void _on_sens_value_changed(float val) => sensetivity = val;
 }
