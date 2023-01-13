@@ -9,7 +9,7 @@ class Player : Actor
 	private float MAX_FALLING_SPEED = 100f;
 	private float JUMP_FORCE = 22f;
 	private float AIR_FRICTION = 1f;
-	private float FLOOR_FRICTION = 0.9f;
+	private float FLOOR_FRICTION = 0.85f;
 	private float sensetivity = 0.0017f;
 
 	private float FULL_MAX_SPEED = 25f;
@@ -29,16 +29,22 @@ class Player : Actor
 	private readonly Vector3 CROUCH_SIZE = new Vector3(1,1.5f,1);
 	private readonly Vector3 FULL_SIZE = new Vector3(1,2,1);
 
-	private float max_speed;
-	private float acc;
-	private float friction;
-
 	private Vector3 velocity;
 	private float fall;
 	private bool justJumped;
 	private Vector3 movingDir;
 	private List<Weapon> weapons;
 	private bool isCrouched;
+
+	enum MoveType {
+		Ground,
+		Ladder,
+		Water
+	}
+
+	private Dictionary<MoveType, Func<float, Vector3>> movingFunctions;
+
+	private MoveType moveType;
 
 	//Nodes
 	private Camera camera;
@@ -59,6 +65,14 @@ class Player : Actor
 		map = GetNode<Map>("/root/World/Map");
 		ui = GetNode<Control>("/root/World/Control");
 		collisionShape = GetNode<CollisionShape>("CollisionShape");
+
+		moveType = MoveType.Ground;
+
+		movingFunctions = new Dictionary<MoveType, Func<float, Vector3>> {
+			[MoveType.Ground] = GroundMovement,
+			[MoveType.Ladder] = LadderMovement,
+			[MoveType.Water] = WaterMovement,
+		};
 
 		//Weapon setup
 		weapons = new List<Weapon>();
@@ -144,14 +158,16 @@ class Player : Actor
 
 	public override void _PhysicsProcess(float dt)
 	{
-		Vector3 result = OnLadder ? LadderMovement(dt) : Movement(dt);
+		Vector3 result = movingFunctions[moveType].Invoke(dt);
 		
 		if(IsOnWall())
 			velocity = result;
 	}
 
-	private Vector3 Movement(float dt)
+	private Vector3 GroundMovement(float dt)
 	{
+		float friction, acc, max_speed;
+
 		fall = Mathf.MoveToward(fall, -MAX_FALLING_SPEED, GRAVITY * dt);
 
 		//Snapping
@@ -179,12 +195,12 @@ class Player : Actor
 		max_speed = isCrouched ? CROUCH_MAX_SPEED : FULL_MAX_SPEED;
 
 		//Horizontal velocity
-		Vector3 go = movingDir * max_speed;
+		Vector3 wishDir = movingDir * max_speed;
 
-		bool surpass = velocity.Length() > go.Length();
+		bool surpass = velocity.Length() > wishDir.Length();
 
 		if(movingDir != Vector3.Zero && !surpass)
-			velocity = velocity.MoveToward(go, acc * dt);
+			velocity = velocity.MoveToward(wishDir, acc * dt);
 		else
 			velocity *= friction * 60 * dt;
 
@@ -214,6 +230,28 @@ class Player : Actor
 		velocity.y = LADDER_MOVEMENT_SPEED * verticalInfluence;
 
 		return MoveAndSlide(velocity, Vector3.Up);		
+	}
+
+	private Vector3 WaterMovement(float dt)
+	{
+		throw new Exception("water movement isnt implemented yet");
+	}
+
+	//Ladder
+    protected Ladder Ladder { get; private set; }
+	
+    public void OnLadderEnter(Ladder ladder)  {
+		moveType = MoveType.Ladder;
+		Ladder = ladder;
+	}
+
+    public void OnLadderLeft(Ladder ladder)  {
+		GetOffLadder();
+	} 
+		
+    protected void GetOffLadder() { 
+		moveType = MoveType.Ground;
+		Ladder = null;
 	}
 
 	public override void _Input(InputEvent ev)
@@ -303,7 +341,7 @@ class Player : Actor
 
 	private void Jump()
 	{
-		if(OnLadder)
+		if(moveType == MoveType.Ladder)
 		{
 			justJumped = true;
 

@@ -3,20 +3,15 @@ using System;
 
 public class Ladder : Area
 {
-    public override void _Ready()
-    {
-        
-    }
-
     public void OnActorEntered(Node node)
     {
-        Actor actor = node as Actor;
-        actor.OnLadderEnter(this);
+        Player ply = node as Player;
+        ply.OnLadderEnter(this);
     }
 
     public void OnActorLeft(Node node)
     {
-        Actor actor = node as Actor;
-        actor.OnLadderLeft(this);
+        Player ply = node as Player;
+        ply.OnLadderLeft(this);
     }
 }

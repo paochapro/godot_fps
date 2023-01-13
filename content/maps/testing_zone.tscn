@@ -43,6 +43,11 @@ background_mode = 2
 background_sky = SubResource( 4 )
 background_color = Color( 1, 0.745098, 0.988235, 1 )
 ambient_light_color = Color( 1, 1, 1, 1 )
+glow_enabled = true
+glow_intensity = 8.0
+glow_bloom = 0.03
+adjustment_enabled = true
+adjustment_contrast = 8.0
 
 [node name="Map" instance=ExtResource( 2 )]
 
@@ -61,16 +66,17 @@ shape = SubResource( 2 )
 transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0 )
 
 [node name="Ladder" parent="Ents" index="1" instance=ExtResource( 5 )]
-transform = Transform( -1.49138e-07, 0, 0.956037, 0, 4.74947, 0, -3.41187, 0, -4.17897e-08, -23.0279, 4.94274, 58.0705 )
+transform = Transform( -1.49138e-07, 0, 0.956037, 0, 4.84062, 0, -3.41187, 0, -4.17897e-08, -23.6113, 4.94274, 58.0705 )
 
 [node name="Ladder2" parent="Ents" index="2" instance=ExtResource( 5 )]
-transform = Transform( 4.17217, 0, 0, 0, 27.7117, 0, 0, 0, 1, 30.6543, 25.0196, -28.2847 )
+transform = Transform( 12.5199, 0, 0, 0, 12.6298, 0, 0, 0, 1, 25.9112, 10.9476, -28.2847 )
 
 [node name="WorldEnvironment" parent="." index="2"]
 environment = SubResource( 3 )
 
 [node name="DirectionalLight" type="DirectionalLight" parent="." index="3"]
 transform = Transform( 0.621941, -0.394405, -0.676487, -1.30445e-07, -0.863897, 0.503669, -0.783064, -0.313252, -0.537293, -0.0365181, 37.6381, 0 )
+light_color = Color( 0.956863, 0.870588, 0.580392, 1 )
 light_energy = 2.0
 light_indirect_energy = 10.113
 light_size = 0.364
