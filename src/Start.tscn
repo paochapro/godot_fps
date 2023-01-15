@@ -42,11 +42,12 @@ margin_right = 107.0
 margin_bottom = 24.0
 text = "0,0"
 
-[node name="Button" type="Button" parent="Control"]
+[node name="UI_UnfocusButton" type="Button" parent="Control"]
 anchor_top = 1.0
 anchor_bottom = 1.0
 margin_top = -20.0
 margin_right = 132.0
+rect_scale = Vector2( 1.023, 0.997074 )
 text = "random ass button"
 
 [node name="AmmoRect" type="ColorRect" parent="Control"]
@@ -77,5 +78,12 @@ margin_top = 9.0
 margin_right = -13.0
 margin_bottom = 23.0
 text = "0.0000000000"
+
+[node name="vars" type="VBoxContainer" parent="Control"]
+anchor_top = 0.5
+anchor_bottom = 0.5
+margin_top = -20.0
+margin_right = 40.0
+margin_bottom = 20.0
 
 [node name="Map" parent="." instance=ExtResource( 1 )]

@@ -1,60 +1,72 @@
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 
 class Player : Actor
 {
 	//Constants
-	private float GRAVITY = 70f;
-	private float MAX_FALLING_SPEED = 100f;
-	private float JUMP_FORCE = 22f;
-	private float AIR_FRICTION = 1f;
-	private float FLOOR_FRICTION = 0.85f;
-	private float sensetivity = 0.0017f;
+	float GRAVITY = 70f;
+	float MAX_FALLING_SPEED = 100f;
+	float JUMP_FORCE = 22f;
+	float sensetivity = 0.0017f;
 
-	private float FULL_MAX_SPEED = 25f;
-	private float CROUCH_MAX_SPEED = 10f;
+	//Horinzontal movement
+	float AIR_FRICTION = 1f;
+	float FLOOR_FRICTION = 0.85f;
 
-	private float FULL_FLOOR_ACC = 130f;
-	private float FULL_AIR_ACC = 50f;
-	private float CROUCH_FLOOR_ACC = 30f;
-	private float CROUCH_AIR_ACC = 20f;
+	float FULL_MAX_SPEED = 25f;
+	float CROUCH_MAX_SPEED = 10f;
 
-	private const float LADDER_MOVEMENT_SPEED = 25f;
-	private readonly Vector3 ladderJumpOffForce = new Vector3(30f, 0f, 30f);
+	//Raised by 130%
+	const float ACC_PERCENT_RAISE = 130f;
+	float FULL_FLOOR_ACC 		= 130f + (130f/100f * ACC_PERCENT_RAISE);
+	float FULL_AIR_ACC 			= 10f + (10f/100f * ACC_PERCENT_RAISE);
+	float CROUCH_FLOOR_ACC 		= 30f + (30f/100f * ACC_PERCENT_RAISE);
+	float CROUCH_AIR_ACC 		= 20f + (20f/100f * ACC_PERCENT_RAISE);
 
-	private readonly float FLOOR_MAX_ANGLE = Mathf.Deg2Rad(45);
-	private readonly float MIN_YAW = Mathf.Deg2Rad(-90);
-	private readonly float MAX_YAW = Mathf.Deg2Rad(90);
-	private readonly Vector3 CROUCH_SIZE = new Vector3(1,1.5f,1);
-	private readonly Vector3 FULL_SIZE = new Vector3(1,2,1);
+	const float LADDER_MOVEMENT_SPEED = 25f;
+	readonly Vector3 ladderJumpOffForce = new Vector3(60f, 0f, 60f);
 
-	private Vector3 velocity;
-	private float fall;
-	private bool justJumped;
-	private Vector3 movingDir;
-	private List<Weapon> weapons;
-	private bool isCrouched;
+	readonly float FLOOR_MAX_ANGLE = Mathf.Deg2Rad(45);
+	readonly float MIN_YAW = Mathf.Deg2Rad(-90);
+	readonly float MAX_YAW = Mathf.Deg2Rad(90);
+	readonly Vector3 CROUCH_SIZE = new Vector3(1,1.5f,1);
+	readonly Vector3 FULL_SIZE = new Vector3(1,2,1);
 
+	Vector3 velocity;
+	float fall;
+	bool justJumped;
+	Vector3 movingDir;
+	List<Weapon> weapons;
+	bool isCrouched;
+
+	Dictionary<string, Action<float>> additionalMovementVars;
+
+	//Movetype
 	enum MoveType {
 		Ground,
 		Ladder,
 		Water
 	}
+	Dictionary<MoveType, Func<float, Vector3>> movingFunctions;
+	MoveType moveType;
 
-	private Dictionary<MoveType, Func<float, Vector3>> movingFunctions;
-
-	private MoveType moveType;
+	Dictionary<string, object> debugVars = new Dictionary<string, object>();
+	// 	["globalAddSpeed"] = 0f,
+	// 	["globalCurrentSpeed"] = 0f,
+	// 	["globalSurpass"] = false,
+	// };
 
 	//Nodes
-	private Camera camera;
-	private Weapon currentWeapon;
-	private Spatial map;
-	private Control ui;
-	private Timer reloadTimer;
-	private Spatial weaponOrigin;
-	private Vector3 spawnPos;
-	private CollisionShape collisionShape;
+	Camera camera;
+	Weapon currentWeapon;
+	Spatial map;
+	Control ui;
+	Timer reloadTimer;
+	Spatial weaponOrigin;
+	Vector3 spawnPos;
+	CollisionShape collisionShape;
 
 	public override void _Ready() {
 
@@ -79,6 +91,8 @@ class Player : Actor
 		weapons.Add(new WeaponHitscanPistol());
 		weapons.Add(new WeaponShotgun());
 
+		//Debug vars
+
 		SwitchWeapon(0);
 
 		//Create properties in settings
@@ -102,14 +116,14 @@ class Player : Actor
 		//Add settings based on movementVars
 		foreach(string movementVarName in movementVars.Keys)
 		{
-			GD.Print(movementVarName);
-
 			HBoxContainer container = new HBoxContainer();
 
 			Label label = new Label();
 			SpinBox spinBox = new SpinBox();
 			label.Text = movementVarName;
 			spinBox.Step = 0;
+			spinBox.AllowGreater = true;
+			spinBox.AllowLesser = true;
 			spinBox.Value = movementVars[movementVarName];
 
 			spinBox.Connect("value_changed", this, "_on_" + movementVarName + "_value_changed");
@@ -159,18 +173,36 @@ class Player : Actor
 	public override void _PhysicsProcess(float dt)
 	{
 		Vector3 result = movingFunctions[moveType].Invoke(dt);
-		
-		if(IsOnWall())
-			velocity = result;
+
+		// TODO: Makes velocity go over maxSpeed 
+		// if(IsOnWall())
+		// 	velocity = result;
+
+		debugVars.AddOrSet("globalCurrentSpeed", velocity.Length());
+
+		var debugVarsContainer = GetNode<VBoxContainer>("/root/World/Control/vars");
+
+		foreach(KeyValuePair<string, object> pair in debugVars)
+		{
+			Label label = debugVarsContainer.GetNodeOrNull<Label>(pair.Key);
+			 
+			if(label == null) {
+				label = new Label();
+				label.Name = pair.Key;
+				debugVarsContainer.AddChild(label);
+			}
+
+			label.Text = pair.Key + ": " + pair.Value;
+		}
 	}
 
 	private Vector3 GroundMovement(float dt)
 	{
-		float friction, acc, max_speed;
+		float friction, acc, maxSpeed;
 
 		fall = Mathf.MoveToward(fall, -MAX_FALLING_SPEED, GRAVITY * dt);
 
-		//Snapping
+		//Floor/Air variables
 		Vector3 snap = Vector3.Zero;
 		if(IsOnFloor())
 		{
@@ -192,26 +224,41 @@ class Player : Actor
 			snap = Vector3.Down;
 		}
 
-		max_speed = isCrouched ? CROUCH_MAX_SPEED : FULL_MAX_SPEED;
+		maxSpeed = isCrouched ? CROUCH_MAX_SPEED : FULL_MAX_SPEED;
+		debugVars.AddOrSet("globalMaxSpeed", maxSpeed);
 
-		//Horizontal velocity
-		Vector3 wishDir = movingDir * max_speed;
-
-		bool surpass = velocity.Length() > wishDir.Length();
-
-		if(movingDir != Vector3.Zero && !surpass)
-			velocity = velocity.MoveToward(wishDir, acc * dt);
-		else
-			velocity *= friction * 60 * dt;
-
+		//Horizontal movement
+		HorizontalMovement(friction, acc, maxSpeed, dt);
+		
 		//Moving
-		Vector3 finalVec = new Vector3(velocity.x, fall, velocity.z);
-		Vector3 result = MoveAndSlideWithSnap(finalVec, snap, Vector3.Up);
+		Vector3 finalVelocity = new Vector3(velocity.x, fall, velocity.z);
+		Vector3 result = MoveAndSlideWithSnap(finalVelocity, snap, Vector3.Up);
 
 		if(IsOnCeiling()) 
 			fall = result.y;
 
 		return result;
+	}
+
+	private void HorizontalMovement(float friction, float acc, float maxSpeed, float dt)
+	{
+		if(IsOnFloor())
+			velocity *= friction * 60 * dt;
+
+		// Recreation of MoveToward without able to go away from destination
+		// Func<Vector3, Vector3, float, Vector3> customMoveToward = (from, to, delta) => {
+		// 	Vector3 deltaDir = from.DirectionTo(to);
+		// 	Vector3 deltaVec = deltaDir * Mathf.Clamp(delta, 0, from.DistanceTo(to));
+		// 	Vector3 final = from + deltaVec;
+
+		// 	return final;
+		// };
+
+		if(movingDir != Vector3.Zero)
+		{
+			float surpassOffset = Mathf.Max(velocity.Length() - maxSpeed, 0);
+			velocity = velocity.MoveToward(movingDir * (maxSpeed + surpassOffset), acc * dt);
+		}
 	}
 
 	private Vector3 LadderMovement(float dt)
@@ -432,4 +479,15 @@ class Player : Actor
 	public void _on_sens_value_changed(float val) => sensetivity = val;
 	public void _on_air_friction_value_changed(float val) => AIR_FRICTION = val;
 	public void _on_floor_friction_value_changed(float val) => FLOOR_FRICTION = val;
+}
+
+static class DictionaryExtensions
+{
+	static public void AddOrSet<K,V>(this Dictionary<K,V> dictionary, K key, V value)
+	{
+		if(!dictionary.ContainsKey(key))
+			dictionary.Add(key, value);
+		else
+			dictionary[key] = value;
+	}
 }
