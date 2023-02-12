@@ -1,32 +1,10 @@
 using Godot;
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 
 class Player : Actor
 {
-	//Constants
-	float GRAVITY = 70f;
-	float MAX_FALLING_SPEED = 100f;
-	float JUMP_FORCE = 22f;
 	float sensetivity = 0.0017f;
-
-	//Horinzontal movement
-	float AIR_FRICTION = 0.99f;
-	float FLOOR_FRICTION = 0.85f;
-
-	float FULL_MAX_SPEED = 25f;
-	float CROUCH_MAX_SPEED = 10f;
-
-	//Raised by 130%
-	const float ACC_PERCENT_RAISE = 130f;
-	float FULL_FLOOR_ACC 		= 130f + (130f/100f * ACC_PERCENT_RAISE);
-	float FULL_AIR_ACC 			= 40f + (40f/100f * ACC_PERCENT_RAISE);
-	float CROUCH_FLOOR_ACC 		= 30f + (30f/100f * ACC_PERCENT_RAISE);
-	float CROUCH_AIR_ACC 		= 20f + (20f/100f * ACC_PERCENT_RAISE);
-
-	const float LADDER_MOVEMENT_SPEED = 25f;
-	readonly Vector3 ladderJumpOffForce = new Vector3(60f, 0f, 60f);
 
 	readonly float FLOOR_MAX_ANGLE = Mathf.Deg2Rad(45);
 	readonly float MIN_YAW = Mathf.Deg2Rad(-90);
@@ -34,25 +12,13 @@ class Player : Actor
 	readonly Vector3 CROUCH_SIZE = new Vector3(1,1.5f,1);
 	readonly Vector3 FULL_SIZE = new Vector3(1,2,1);
 
-	Vector3 velocity;
-	float fall;
 	bool justJumped;
 	Vector3 movingDir;
-	List<Weapon> weapons;
 	bool isCrouched;
-
-	Dictionary<string, Action<float>> additionalMovementVars;
-
-	//Movetype
-	enum MoveType {
-		Ground,
-		Ladder,
-		Water
-	}
-	Dictionary<MoveType, Func<float, Vector3>> movingFunctions;
-	MoveType moveType;
+	List<Weapon> weapons;
 
 	Dictionary<string, object> debugVars = new Dictionary<string, object>();
+	PlayerMovement pm;
 
 	//Nodes
 	Camera camera;
@@ -74,41 +40,45 @@ class Player : Actor
 		ui = GetNode<Control>("/root/World/Control");
 		collisionShape = GetNode<CollisionShape>("CollisionShape");
 
-		moveType = MoveType.Ground;
-
-		movingFunctions = new Dictionary<MoveType, Func<float, Vector3>> {
-			[MoveType.Ground] = GroundMovement,
-			[MoveType.Ladder] = LadderMovement,
-			[MoveType.Water] = WaterMovement,
-		};
+		pm = new PlayerMovement(debugVars);
 
 		//Weapon setup
 		weapons = new List<Weapon>();
 		weapons.Add(new WeaponHitscanPistol());
 		weapons.Add(new WeaponShotgun());
-
-		//Debug vars
-
 		SwitchWeapon(0);
 
-		//Create properties in settings
-		var movementVars = new Dictionary<string, float>() {
-			["gravity"] 				= GRAVITY,
-			["max_falling_speed"] 		= MAX_FALLING_SPEED,
-			["jump_force"] 				= JUMP_FORCE,
-			["air_friction"] 			= AIR_FRICTION,
-			["floor_friction"]			= FLOOR_FRICTION,
-			["sens"] 					= sensetivity,
-			["full_max_speed"]			= FULL_MAX_SPEED,
-			["crouch_max_speed"]		= CROUCH_MAX_SPEED,
-			["full_air_acc"]			= FULL_AIR_ACC,
-			["full_floor_acc"]			= FULL_FLOOR_ACC,
-			["crouch_air_acc"]			= CROUCH_AIR_ACC,
-			["crouch_floor_acc"]		= CROUCH_FLOOR_ACC,
-		};
-
 		var settings = GetNode("/root/World/Control/settings");
-			
+		CreateMovementProperties(settings);
+
+		//Camera rotation
+		LineEdit camRotLineEdit = settings.GetNode("camrot").GetNode("LineEdit") as LineEdit;
+		camRotLineEdit.Connect("text_changed", this, "ChangeCameraRotation");
+
+		//Storing spawn position
+		spawnPos = Translation;
+	}
+
+	void CreateMovementProperties(Node settings)
+	{
+		//Create properties in settings
+		// var movementVars = new Dictionary<string, float>() {
+		// 	["gravity"] 				= GRAVITY,
+		// 	["max_falling_speed"] 		= MAX_FALLING_SPEED,
+		// 	["jump_force"] 				= JUMP_FORCE,
+		// 	["air_friction"] 			= AIR_FRICTION,
+		// 	["floor_friction"]			= FLOOR_FRICTION,
+		// 	["sens"] 					= sensetivity,
+		// 	["full_max_speed"]			= FULL_MAX_SPEED,
+		// 	["crouch_max_speed"]		= CROUCH_MAX_SPEED,
+		// 	["full_air_acc"]			= FULL_AIR_ACC,
+		// 	["full_floor_acc"]			= FULL_FLOOR_ACC,
+		// 	["crouch_air_acc"]			= CROUCH_AIR_ACC,
+		// 	["crouch_floor_acc"]		= CROUCH_FLOOR_ACC,
+		// };
+
+		var movementVars = new Dictionary<string, float>();
+
 		//Add settings based on movementVars
 		foreach(string movementVarName in movementVars.Keys)
 		{
@@ -129,12 +99,6 @@ class Player : Actor
 			settings.AddChild(container);
 		}
 
-		//Camera rotation
-		LineEdit camRotLineEdit = settings.GetNode("camrot").GetNode("LineEdit") as LineEdit;
-		camRotLineEdit.Connect("text_changed", this, "ChangeCameraRotation");
-
-		//Storing spawn position
-		spawnPos = Translation;
 	}
 
 	private void ChangeCameraRotation(string str)
@@ -168,193 +132,23 @@ class Player : Actor
 
 	public override void _PhysicsProcess(float dt)
 	{
-		Vector3 result = movingFunctions[moveType].Invoke(dt);
+		PlayerInfo info = new PlayerInfo() {
+			IsOnWall = IsOnWall(),
+			IsOnCeiling = IsOnCeiling(),
+			IsOnFloor = IsOnFloor(),
+			FloorNormal = GetFloorNormal(),
+			MovingDir = movingDir,
+			IsCrouched = isCrouched,
+			JustJumped = justJumped,
+			FloorMaxAngle = FLOOR_MAX_ANGLE
+		};
 
-		// TODO: Makes velocity go over maxSpeed 
-		// if(IsOnWall())
-		// 	velocity = result;
+		Vector3 velocity = pm.Process(dt, info);
+		Vector3 movingResult = MoveAndSlideWithSnap(velocity, pm.Snap, Vector3.Up);
 
-		debugVars.AddOrSet("globalCurrentSpeed", velocity.Length());
+		pm.PostProcess(dt, info, movingResult, GetCollisions());
 
-		var debugVarsContainer = GetNode<VBoxContainer>("/root/World/Control/vars");
-
-		foreach(KeyValuePair<string, object> pair in debugVars)
-		{
-			Label label = debugVarsContainer.GetNodeOrNull<Label>(pair.Key);
-			 
-			if(label == null) {
-				label = new Label();
-				label.Name = pair.Key;
-				debugVarsContainer.AddChild(label);
-			}
-
-			label.Text = pair.Key + ": " + pair.Value;
-		}
-	}
-
-	private Vector3 GroundMovement(float dt)
-	{
-		float friction, acc, maxSpeed;
-
-		fall = Mathf.MoveToward(fall, -MAX_FALLING_SPEED, GRAVITY * dt);
-
-		//Floor/Air variables
-		Vector3 snap = Vector3.Zero;
-		if(IsOnFloor())
-		{
-			friction = FLOOR_FRICTION;
-			acc = isCrouched ? CROUCH_FLOOR_ACC : FULL_FLOOR_ACC;
-
-			if(justJumped)
-				snap = Vector3.Zero;
-			else
-			{
-				snap = -GetFloorNormal();
-				fall = 0;
-			}
-		}
-		else
-		{
-			friction = AIR_FRICTION;
-			acc = isCrouched ? CROUCH_AIR_ACC : FULL_AIR_ACC;
-			snap = Vector3.Down;
-		}
-
-		maxSpeed = isCrouched ? CROUCH_MAX_SPEED : FULL_MAX_SPEED;
-		debugVars.AddOrSet("globalMaxSpeed", maxSpeed);
-
-		//Horizontal movement
-		HorizontalMovement(friction, acc, maxSpeed, dt);
-		
-		//Moving
-		Vector3 finalVelocity = new Vector3(velocity.x, fall, velocity.z);
-		Vector3 result = MoveAndSlideWithSnap(finalVelocity, snap, Vector3.Up);
-
-		if(IsOnCeiling())
-			fall = result.y;
-
-		if(IsOnWall())
-		{
-			//Finding a wall
-			KinematicCollision wall = null;
-
-			for(int i = 0; i < GetSlideCount(); ++i)
-			{
-				KinematicCollision collision = GetSlideCollision(i);
-				Vector3 normal = collision.Normal;
-				Vector2 normal2 = new Vector2(normal.z, normal.y);
-				normal2.Angle();
-
-				float yAngle = normal.y * Mathf.Deg2Rad(90);
-
-				if(yAngle < FLOOR_MAX_ANGLE)
-					wall = collision;
-			}
-
-			if(wall != null)
-			{
-				Vector3 modifiedVel = velocity;
-				modifiedVel.z = 0;
-
-				Vector3 wallNormal = wall.Normal;
-
-				var newBasis = new Basis();
-				newBasis.z = wallNormal;
-				newBasis.y = Vector3.Up;
-				newBasis.x = -wallNormal.Cross(Vector3.Up);
-
-				Spatial spatial = new Spatial();
-				spatial.Transform = new Transform(newBasis, Vector3.Zero);
-				AddChild(spatial);
-
-				Vector3 newVelocity = spatial.ToGlobal(modifiedVel);
-				velocity = newVelocity;
-
-				spatial.QueueFree();
-			}
-		}
-
-		debugVars.AddOrSet("fall", fall);
-
-		return result;
-	}
-
-	private void HorizontalMovement(float friction, float acc, float maxSpeed, float dt)
-	{
-		velocity *= friction * 60 * dt;
-
-		// Recreation of MoveToward without able to go away from destination
-		// Func<Vector3, Vector3, float, Vector3> customMoveToward = (from, to, delta) => {
-		// 	Vector3 deltaDir = from.DirectionTo(to);
-		// 	Vector3 deltaVec = deltaDir * Mathf.Clamp(delta, 0, from.DistanceTo(to));
-		// 	Vector3 final = from + deltaVec;
-
-		// 	return final;
-		// };
-
-		// Recreation of MoveToward that just returns deltaVec
-		// Func<Vector3, Vector3, float, Vector3> MoveTowardDelta = (from, to, delta) => {
-		// 	Vector3 deltaDir = from.DirectionTo(to);
-		// 	Vector3 deltaVec = deltaDir * Mathf.Clamp(delta, 0, from.DistanceTo(to));
-		// 	return deltaVec;
-		// };
-
-		if(movingDir != Vector3.Zero)
-		{
-			//It works but its weird
-			//float surpassOffset = Mathf.Max(velocity.Length() - maxSpeed, 0);
-			//velocity = velocity.MoveToward(movingDir * maxSpeed, acc * dt);
-
-			float currentSpeed = velocity.Length();
-			float addAcc = Mathf.Clamp(maxSpeed - currentSpeed, 0, acc * dt);
-			//Vector3 deltaDir = velocity.DirectionTo(movingDir);
-			//Vector3 deltaVec = addAcc * deltaDir;
-			velocity += movingDir * addAcc;
-
-			debugVars.AddOrSet("acc", acc);
-			debugVars.AddOrSet("addAcc", addAcc);
-			debugVars.AddOrSet("currentSpeed", velocity.Length());
-		}
-	}
-
-	private Vector3 LadderMovement(float dt)
-	{
-		fall = 0;
-
-		//Remove local z
-		Vector3 localMovingDir = Ladder.ToLocal(movingDir + Ladder.Translation);
-		localMovingDir.z = 0;
-		Vector3 horizontalMovement = Ladder.ToGlobal(localMovingDir) - Ladder.Translation;
-
-		//Calculate velocity
-		float verticalInfluence = -Ladder.Transform.basis.Tdotz(movingDir);
-
-		velocity = horizontalMovement * LADDER_MOVEMENT_SPEED;
-		velocity.y = LADDER_MOVEMENT_SPEED * verticalInfluence;
-
-		return MoveAndSlide(velocity, Vector3.Up);		
-	}
-
-	private Vector3 WaterMovement(float dt)
-	{
-		throw new Exception("water movement isnt implemented yet");
-	}
-
-	//Ladder
-    protected Ladder Ladder { get; private set; }
-	
-    public void OnLadderEnter(Ladder ladder)  {
-		moveType = MoveType.Ladder;
-		Ladder = ladder;
-	}
-
-    public void OnLadderLeft(Ladder ladder)  {
-		GetOffLadder();
-	} 
-		
-    protected void GetOffLadder() { 
-		moveType = MoveType.Ground;
-		Ladder = null;
+		DebugVarsProcess();
 	}
 
 	public override void _Input(InputEvent ev)
@@ -444,22 +238,10 @@ class Player : Actor
 
 	private void Jump()
 	{
-		if(moveType == MoveType.Ladder)
-		{
-			justJumped = true;
+		justJumped = true;
 
-			Vector3 ladderBackward = Ladder.Transform.basis.z;
-			velocity = ladderBackward * ladderJumpOffForce;
-			GetOffLadder();
-		}
-		else
-		{
-			if(IsOnFloor())
-			{
-				justJumped = true;
-				fall = JUMP_FORCE;
-			}
-		}
+		if(IsOnFloor())
+			pm.ApplyJumpForce();
 	}
 
 	private void Looking(Vector2 relative)
@@ -493,8 +275,7 @@ class Player : Actor
 
 	private void Death()
 	{
-		velocity = Vector3.Zero;
-		fall = 0;
+		pm = new PlayerMovement(debugVars);
 		Translation = spawnPos;
 	}
 
@@ -522,19 +303,35 @@ class Player : Actor
 		
 	}
 
-	public void _on_full_max_speed_value_changed(float val) => FULL_MAX_SPEED = val;
-	public void _on_crouch_max_speed_value_changed(float val) => CROUCH_MAX_SPEED = val;
-	public void _on_full_air_acc_value_changed(float val) => FULL_AIR_ACC = val;
-	public void _on_crouch_air_acc_value_changed(float val) => CROUCH_AIR_ACC = val;
-	public void _on_full_floor_acc_value_changed(float val) => FULL_FLOOR_ACC = val;
-	public void _on_crouch_floor_acc_value_changed(float val) => CROUCH_FLOOR_ACC = val;
+	KinematicCollision[] GetCollisions()
+	{
+		//Getting collisions
+		int collisionsCount = GetSlideCount();
+		var collisions = new KinematicCollision[collisionsCount];
 
-	public void _on_gravity_value_changed(float val) => GRAVITY = val;
-	public void _on_jump_force_value_changed(float val) => JUMP_FORCE = val; 
-	public void _on_max_falling_speed_value_changed(float val) => MAX_FALLING_SPEED = val;
-	public void _on_sens_value_changed(float val) => sensetivity = val;
-	public void _on_air_friction_value_changed(float val) => AIR_FRICTION = val;
-	public void _on_floor_friction_value_changed(float val) => FLOOR_FRICTION = val;
+		for(int i = 0; i < collisions.Length; ++i)
+			collisions[i] = GetSlideCollision(i);
+
+		return collisions;
+	}
+
+	void DebugVarsProcess()
+	{
+		var debugVarsContainer = GetNode<VBoxContainer>("/root/World/Control/vars");
+
+		foreach(KeyValuePair<string, object> pair in debugVars)
+		{
+			Label label = debugVarsContainer.GetNodeOrNull<Label>(pair.Key);
+			 
+			if(label == null) {
+				label = new Label();
+				label.Name = pair.Key;
+				debugVarsContainer.AddChild(label);
+			}
+
+			label.Text = pair.Key + ": " + pair.Value;
+		}
+	}
 }
 
 static class DictionaryExtensions
