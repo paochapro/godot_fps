@@ -9,7 +9,7 @@ struct PlayerInfo {
     public Vector3 MovingDir;
     public Vector3 FloorNormal;
     public bool IsCrouched;
-    public bool JustJumped;
+	public bool IsJumping;
     public float FloorMaxAngle;
 }
 
@@ -34,6 +34,7 @@ class PlayerMovement
     Dictionary<string, object> debugVars;
     Vector3 velocity;
 	float fall;
+	bool justJumped;
 
     Vector3 snap;
     public Vector3 Snap => snap; 
@@ -45,6 +46,7 @@ class PlayerMovement
 
     public Vector3 Process(float dt, PlayerInfo info)
     {
+		Jumping(info);
         return GroundMovement(dt, info);
     }
 
@@ -53,9 +55,15 @@ class PlayerMovement
         PostGroundMovement(dt, info, movingResult, collisions);
     }
 
-    public void ApplyJumpForce()
+    public void Jumping(PlayerInfo info)
     {
-        fall = JUMP_FORCE;
+		if(justJumped) justJumped = false;
+
+        if(info.IsOnFloor && info.IsJumping)
+		{
+			justJumped = true;
+			fall = JUMP_FORCE;
+		}
     }
 
     Vector3 GroundMovement(float dt, PlayerInfo info)
@@ -70,7 +78,7 @@ class PlayerMovement
 			friction = FLOOR_FRICTION;
 			acc = info.IsCrouched ? CROUCH_FLOOR_ACC : FULL_FLOOR_ACC;
 
-			if(info.JustJumped)
+			if(justJumped)
 				snap = Vector3.Zero;
 			else
 			{

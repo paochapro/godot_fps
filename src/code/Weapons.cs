@@ -14,6 +14,16 @@ abstract class Weapon
     public int Magazine => magazine;
 
     public PackedScene WeaponModel { get; private set; }
+    public bool CanReload => magazine != magazineCapacity && ammo != 0;
+
+    public Weapon(int startAmmo, int magazineCapacity ,PackedScene weaponModel)
+    {
+        this.WeaponModel = weaponModel;
+        this.magazineCapacity = magazineCapacity;
+
+        magazine = magazineCapacity;
+        ammo = startAmmo;
+    }
 
     public bool Reload()
     {
@@ -29,7 +39,7 @@ abstract class Weapon
         return ammo != 0;
     }
 
-    public bool Shoot(Vector3 origin, Vector3 dir, Spatial map)
+    public bool TryShoot(Vector3 origin, Vector3 dir, Spatial map)
     {
         if(magazine <= 0) return false;
 
@@ -40,15 +50,6 @@ abstract class Weapon
     }
 
     protected abstract void FireOutput(Vector3 origin, Vector3 dir, Spatial map);
-
-    public Weapon(int startAmmo, int magazineCapacity ,PackedScene weaponModel)
-    {
-        this.WeaponModel = weaponModel;
-        this.magazineCapacity = magazineCapacity;
-
-        magazine = magazineCapacity;
-        ammo = startAmmo;
-    }
 }
 
 abstract class WeaponProjectile : Weapon
