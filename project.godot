@@ -11,8 +11,12 @@ config_version=4
 [application]
 
 config/name="mono-test"
-run/main_scene="res://src/Start.tscn"
+run/main_scene="res://src/tscn/Start.tscn"
 config/icon="res://icon.png"
+
+[display]
+
+window/size/fullscreen=true
 
 [gui]
 

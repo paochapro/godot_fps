@@ -36,7 +36,7 @@ public class ExplosionBarrel : StaticBody, IHitable
         GD.Print("explode");
 
         //Create a explosion sprite
-        var explosionSpriteScene = GD.Load<PackedScene>("res://src/Explosion.tscn");
+        var explosionSpriteScene = GD.Load<PackedScene>("res://src/tscn/Explosion.tscn");
         var explosionSprite = explosionSpriteScene.Instance() as Explosion;
         explosionSprite.Translation = this.Translation;
         map.AddChild(explosionSprite);

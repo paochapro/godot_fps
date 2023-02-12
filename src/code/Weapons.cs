@@ -64,7 +64,7 @@ abstract class WeaponProjectile : Weapon
 
     protected override void FireOutput(Vector3 origin, Vector3 dir, Spatial map)
     {
-        PackedScene bulletScene = GD.Load<PackedScene>("res://src/Bullet.tscn");
+        PackedScene bulletScene = GD.Load<PackedScene>("res://src/tscn/Bullet.tscn");
         Bullet bullet = bulletScene.Instance() as Bullet;
         bullet.Init(origin, speed, dir, collisionLayer, collisionMask);
         map.AddChild(bullet);

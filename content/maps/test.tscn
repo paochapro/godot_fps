@@ -2,9 +2,9 @@
 
 [ext_resource path="res://content/resources/dev_walls.material" type="Material" id=1]
 [ext_resource path="res://content/resources/dev_floor.material" type="Material" id=2]
-[ext_resource path="res://src/MapBase.tscn" type="PackedScene" id=3]
-[ext_resource path="res://src/Player.tscn" type="PackedScene" id=5]
-[ext_resource path="res://src/ExplosionBarrel.tscn" type="PackedScene" id=6]
+[ext_resource path="res://src/tscn/MapBase.tscn" type="PackedScene" id=3]
+[ext_resource path="res://src/tscn/Player.tscn" type="PackedScene" id=5]
+[ext_resource path="res://src/tscn/ExplosionBarrel.tscn" type="PackedScene" id=6]
 
 [sub_resource type="ArrayMesh" id=1]
 resource_name = "plane_test_blend_Cube"

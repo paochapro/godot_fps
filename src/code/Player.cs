@@ -12,7 +12,7 @@ class Player : Actor
 	float sensetivity = 0.0017f;
 
 	//Horinzontal movement
-	float AIR_FRICTION = 1f;
+	float AIR_FRICTION = 0.99f;
 	float FLOOR_FRICTION = 0.85f;
 
 	float FULL_MAX_SPEED = 25f;
@@ -21,7 +21,7 @@ class Player : Actor
 	//Raised by 130%
 	const float ACC_PERCENT_RAISE = 130f;
 	float FULL_FLOOR_ACC 		= 130f + (130f/100f * ACC_PERCENT_RAISE);
-	float FULL_AIR_ACC 			= 10f + (10f/100f * ACC_PERCENT_RAISE);
+	float FULL_AIR_ACC 			= 40f + (40f/100f * ACC_PERCENT_RAISE);
 	float CROUCH_FLOOR_ACC 		= 30f + (30f/100f * ACC_PERCENT_RAISE);
 	float CROUCH_AIR_ACC 		= 20f + (20f/100f * ACC_PERCENT_RAISE);
 
@@ -53,10 +53,6 @@ class Player : Actor
 	MoveType moveType;
 
 	Dictionary<string, object> debugVars = new Dictionary<string, object>();
-	// 	["globalAddSpeed"] = 0f,
-	// 	["globalCurrentSpeed"] = 0f,
-	// 	["globalSurpass"] = false,
-	// };
 
 	//Nodes
 	Camera camera;
@@ -234,16 +230,58 @@ class Player : Actor
 		Vector3 finalVelocity = new Vector3(velocity.x, fall, velocity.z);
 		Vector3 result = MoveAndSlideWithSnap(finalVelocity, snap, Vector3.Up);
 
-		if(IsOnCeiling()) 
+		if(IsOnCeiling())
 			fall = result.y;
+
+		if(IsOnWall())
+		{
+			//Finding a wall
+			KinematicCollision wall = null;
+
+			for(int i = 0; i < GetSlideCount(); ++i)
+			{
+				KinematicCollision collision = GetSlideCollision(i);
+				Vector3 normal = collision.Normal;
+				Vector2 normal2 = new Vector2(normal.z, normal.y);
+				normal2.Angle();
+
+				float yAngle = normal.y * Mathf.Deg2Rad(90);
+
+				if(yAngle < FLOOR_MAX_ANGLE)
+					wall = collision;
+			}
+
+			if(wall != null)
+			{
+				Vector3 modifiedVel = velocity;
+				modifiedVel.z = 0;
+
+				Vector3 wallNormal = wall.Normal;
+
+				var newBasis = new Basis();
+				newBasis.z = wallNormal;
+				newBasis.y = Vector3.Up;
+				newBasis.x = -wallNormal.Cross(Vector3.Up);
+
+				Spatial spatial = new Spatial();
+				spatial.Transform = new Transform(newBasis, Vector3.Zero);
+				AddChild(spatial);
+
+				Vector3 newVelocity = spatial.ToGlobal(modifiedVel);
+				velocity = newVelocity;
+
+				spatial.QueueFree();
+			}
+		}
+
+		debugVars.AddOrSet("fall", fall);
 
 		return result;
 	}
 
 	private void HorizontalMovement(float friction, float acc, float maxSpeed, float dt)
 	{
-		if(IsOnFloor())
-			velocity *= friction * 60 * dt;
+		velocity *= friction * 60 * dt;
 
 		// Recreation of MoveToward without able to go away from destination
 		// Func<Vector3, Vector3, float, Vector3> customMoveToward = (from, to, delta) => {
@@ -254,10 +292,28 @@ class Player : Actor
 		// 	return final;
 		// };
 
+		// Recreation of MoveToward that just returns deltaVec
+		// Func<Vector3, Vector3, float, Vector3> MoveTowardDelta = (from, to, delta) => {
+		// 	Vector3 deltaDir = from.DirectionTo(to);
+		// 	Vector3 deltaVec = deltaDir * Mathf.Clamp(delta, 0, from.DistanceTo(to));
+		// 	return deltaVec;
+		// };
+
 		if(movingDir != Vector3.Zero)
 		{
-			float surpassOffset = Mathf.Max(velocity.Length() - maxSpeed, 0);
-			velocity = velocity.MoveToward(movingDir * (maxSpeed + surpassOffset), acc * dt);
+			//It works but its weird
+			//float surpassOffset = Mathf.Max(velocity.Length() - maxSpeed, 0);
+			//velocity = velocity.MoveToward(movingDir * maxSpeed, acc * dt);
+
+			float currentSpeed = velocity.Length();
+			float addAcc = Mathf.Clamp(maxSpeed - currentSpeed, 0, acc * dt);
+			//Vector3 deltaDir = velocity.DirectionTo(movingDir);
+			//Vector3 deltaVec = addAcc * deltaDir;
+			velocity += movingDir * addAcc;
+
+			debugVars.AddOrSet("acc", acc);
+			debugVars.AddOrSet("addAcc", addAcc);
+			debugVars.AddOrSet("currentSpeed", velocity.Length());
 		}
 	}
 
